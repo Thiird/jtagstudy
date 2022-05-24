@@ -11,7 +11,7 @@
 
 int main(int argc, char **argv)
 {
-    initUsart(115200);
+    initUsart();
 
     // set jtag pins IO direction
     DDRD |= (1 << TDI);  // output
