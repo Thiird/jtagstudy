@@ -1,3 +1,8 @@
+#ifndef __AVR_ATmega32U4__
+#define __AVR_ATmega32U4__
+#endif
+
+#include <avr/io.h>
 #include "../header/jtag.h"
 
 void toggleClock()
@@ -31,7 +36,7 @@ int countDevices()
 
     // shift in BYPASS instruction (all 1's)
     setTDI(HIGH);
-    for (uint8_t i = 0; i < AVR_IR_LENGTH - 1; i++)
+    for (uint8_t i = 0; i < AVR_JTAG_IR_LENGTH - 1; i++)
         toggleClock();
 
     // go to 'Exit-1 IR' state and shift in

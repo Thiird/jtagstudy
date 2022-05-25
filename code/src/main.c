@@ -6,21 +6,24 @@
 #include <avr/io.h>
 #include <util/delay.h>
 
-#include "include/header/jtag.h"
-#include "include/header/usart.h"
+#include "../include/header/jtag.h"
+#include "../include/header/usart.h"
 
 int main(int argc, char **argv)
 {
-    initUsart();
-
     // set jtag pins IO direction
     DDRD |= (1 << TDI);  // output
     DDRB &= ~(1 << TDO); // input
     DDRB |= (1 << TMS);  // output
     DDRB |= (1 << TCK);  // output
 
-    resetJtag();
-    serialWrite("TAP chain length: %d\n", countDevices());
+    initUsart();
+
+    usartWrite('5', 1);
+
+    while (1)
+    {
+    }
 
     return 0;
 }
