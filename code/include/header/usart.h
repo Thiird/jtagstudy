@@ -4,12 +4,12 @@
 
 void initUsart();
 
-void usartWrite(char *data, uint8_t len);
+void usartWrite(char **data);
 
-int usartAppend(char *data, uint8_t len);
+int usartAppend(char **data);
 
 void usartFlush();
 
 uint8_t addCharTxBuffer();
 
-uint8_t *getNextByte(uint8_t *currentByte);
+uint8_t *getNextQByte(uint8_t *currentByte);

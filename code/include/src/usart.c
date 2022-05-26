@@ -1,23 +1,24 @@
 #ifndef __AVR_ATmega32U4__
 #define __AVR_ATmega32U4__
 #endif
-
+#define F_CPU 16000000
 #include <avr/io.h>
 #include <avr/interrupt.h>
 #include "../header/usart.h"
+#include <util/delay.h>
 
 // txQ == transmission queue
 uint8_t txQueue[TX_QUEUE_SIZE];
 
 uint8_t *txQStart = txQueue;
-uint8_t *txQEnd = txQueue + 128;
+uint8_t *txQEnd = txQueue + (TX_QUEUE_SIZE - 1);
 
 // if these two ptrs are equal, it means there is nothing to be sent
 uint8_t *txQWriteIndex = txQueue; // where to append new chars to be sent
 uint8_t *txQReadIndex = txQueue;  // where usart takes next char to send
 
-// actual queue size is TX_QUEUE_SIZE - 1, need one cell betwwen two pointers
-// when appending data
+// actual queue size is TX_QUEUE_SIZE - 1, need one cell betwwen
+// read/write ptrs when appending data
 
 void initUsart()
 {
@@ -47,44 +48,39 @@ ISR(USART1_TX_vect)
     addCharTxBuffer();
 }
 
-void usartWrite(char *data, uint8_t len)
+void usartWrite(char **str)
 {
-    usartAppend(data, len);
+    usartAppend(str);
     usartFlush();
+
+    _delay_ms(1500);
+
+    usartAppend(str);
+    usartFlush();
+
+    PORTC |= (1 << PORTC7);
 }
 
-int usartAppend(char *data, uint8_t len)
+int usartAppend(char **data)
 {
-    if (len < 1)
+    uint8_t *nextQByte = 0;
+    while (1)
     {
-        return 1;
-    }
+        if (**data == '\0')
+            return 0;
 
-    uint8_t *nextByte = 0;
-    while (len != 0)
-    {
-        nextByte = getNextByte(txQWriteIndex);
-        if (nextByte)
+        nextQByte = getNextQByte(txQWriteIndex);
+        if (nextQByte)
         {
-            *txQWriteIndex = *data;
-            len--;
-            data--;
-            txQWriteIndex = nextByte;
+            *txQWriteIndex = **data;
+            (*data)++;
+            txQWriteIndex = nextQByte;
         }
         else
-        { // No more space
-            break;
+        { // No more space, time to flush
+            return 1;
         }
     }
-
-    // not enough space to append the whole message
-    // time to flush!
-    if (!len)
-    {
-        return 1;
-    }
-
-    return 0;
 }
 
 void usartFlush()
@@ -106,7 +102,7 @@ uint8_t addCharTxBuffer()
     if (txQReadIndex != txQWriteIndex)
     {
         UDR1 = *txQReadIndex;
-        txQReadIndex == txQEnd ? txQReadIndex = txQStart : txQReadIndex--;
+        txQReadIndex == txQEnd ? txQReadIndex = txQStart : txQReadIndex++;
 
         return 0;
     }
@@ -114,7 +110,7 @@ uint8_t addCharTxBuffer()
     return (uint8_t)1;
 }
 
-uint8_t *getNextByte(uint8_t *currentByte)
+uint8_t *getNextQByte(uint8_t *currentByte)
 {
     if (currentByte == txQReadIndex)
     {
@@ -124,35 +120,36 @@ uint8_t *getNextByte(uint8_t *currentByte)
         }
         else
         {
-            return currentByte - 1;
+            return currentByte + 1;
         }
     }
 
-    if (currentByte > txQReadIndex)
+    if (currentByte < txQReadIndex)
     {
-        if (currentByte - txQReadIndex > 1)
+        if (txQReadIndex - currentByte > 1)
         {
-            return currentByte - 1;
+            return currentByte + 1;
         }
 
         // must leave an empty cell between write and read indices
         // when writing, flush() knows there are chars to send if
         // the two are not equal
-        return 0;
+
+        return (uint8_t)0;
     }
 
-    // if currentByte < txQReadIndex
+    // if currentByte > txQReadIndex
 
-    if (currentByte - txQEnd >= 1)
+    if (txQEnd - currentByte >= 1)
     {
-        return currentByte - 1;
+        return currentByte + 1;
     }
 
     if (currentByte == txQEnd)
     {
-        if (txQReadIndex < txQStart)
+        if (txQReadIndex > txQStart)
         {
-            return txQEnd;
+            return txQStart;
         }
 
         return (uint8_t)0;
