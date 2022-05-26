@@ -1,11 +1,11 @@
 #ifndef __AVR_ATmega32U4__
 #define __AVR_ATmega32U4__
 #endif
+
 #define F_CPU 16000000
 #include <avr/io.h>
 #include <avr/interrupt.h>
 #include "../header/usart.h"
-#include <util/delay.h>
 
 // txQ == transmission queue
 uint8_t txQueue[TX_QUEUE_SIZE];
@@ -48,17 +48,18 @@ ISR(USART1_TX_vect)
     addCharTxBuffer();
 }
 
-void usartWrite(char **str)
+void usartWrite(char *str)
 {
-    usartAppend(str);
+    // double ptr is needed to keep track
+    // of the already appended string while flushing
+
+    char *data = &str;
+    while (usartAppend(data))
+    {
+        usartFlush();
+    }
+
     usartFlush();
-
-    _delay_ms(1500);
-
-    usartAppend(str);
-    usartFlush();
-
-    PORTC |= (1 << PORTC7);
 }
 
 int usartAppend(char **data)

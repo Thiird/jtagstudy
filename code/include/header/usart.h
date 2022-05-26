@@ -4,7 +4,7 @@
 
 void initUsart();
 
-void usartWrite(char **data);
+void usartWrite(char *data);
 
 int usartAppend(char **data);
 

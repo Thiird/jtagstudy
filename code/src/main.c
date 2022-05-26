@@ -1,10 +1,12 @@
 // these two defines must go before include of avr/io.h!!
+#ifndef __AVR_ATmega32U4__
 #define __AVR_ATmega32U4__
+#endif
+
 #define F_CPU 16000000
 
 #include <unistd.h>
 #include <avr/io.h>
-#include <util/delay.h>
 
 #include "../include/header/jtag.h"
 #include "../include/header/usart.h"
@@ -20,11 +22,10 @@ int main(int argc, char **argv)
 
     initUsart();
 
-    char str[210] =
-        "Ciao, con la seguente volevo dirti che insomma io ti amo da pazzi e mi piaci tanto, elon vuoi sposarmi Ciao, con la seguente volevo dirti che insomma io ti amo da pazzi e mi piaci tanto, elon vuoi sposarmi\n\r\0";
-    char *ptr = &str[0];
+    char str[220] =
+        "Ciao, con la seguente volevo dirti che insomma io ti amo da pazzi e mi piaci tanto, elon vuoi sposarmi Ciao, con la seguente volevo dirti che insomma io ti amo da pazzi e mi piaci tanto, elon vuoi sposarmiaaaaaaaaaa\n\r\0";
 
-    usartWrite(&ptr);
+    usartWrite(&str[0]);
 
     while (1)
     {
