@@ -1,8 +1,0 @@
-{
-  "files.associations": {
-    "io.h": "c",
-    "gpio.h": "c"
-  },
-  "editor.defaultFormatter": "esbenp.prettier-vscode",
-  "editor.formatOnSave": true
-}

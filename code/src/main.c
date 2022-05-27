@@ -6,7 +6,9 @@
 #define F_CPU 16000000
 
 #include <unistd.h>
+#include <stdio.h>
 #include <avr/io.h>
+#include <util/delay.h>
 
 #include "../include/header/jtag.h"
 #include "../include/header/usart.h"
@@ -22,13 +24,15 @@ int main(int argc, char **argv)
 
     initUsart();
 
-    char str[220] =
-        "Ciao, con la seguente volevo dirti che insomma io ti amo da pazzi e mi piaci tanto, elon vuoi sposarmi Ciao, con la seguente volevo dirti che insomma io ti amo da pazzi e mi piaci tanto, elon vuoi sposarmiaaaaaaaaaa\n\r\0";
-
-    usartWrite(&str[0]);
+    char usartBuffer[128];
+    uint8_t cont = 0;
 
     while (1)
     {
+        usartWrite(&usartBuffer[0]);
+        cont++;
+        snprintf(usartBuffer, 15, "Number is %d\n\r", cont);
+        _delay_ms(100);
     }
 
     return 0;

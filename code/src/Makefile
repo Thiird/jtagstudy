@@ -3,8 +3,7 @@ PROGRAMMER?=usbasp
 PORT?=/dev/ttyACM0
 BAUD?=115200
 
-default:
-	build flash
+default: build flash
 
 build:
 	avr-gcc -mmcu=atmega32u4 main.c ../include/src/usart.c -o bin/main
@@ -14,4 +13,4 @@ flash:
 	avrdude -c ${PROGRAMMER} -p m32u4 -P ${PORT} -b ${BAUD} -U flash:w:bin/main.hex
 
 clean:
-	rm -f /bin
+	rm -rf bin

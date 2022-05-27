@@ -48,12 +48,13 @@ ISR(USART1_TX_vect)
     addCharTxBuffer();
 }
 
+// takes in a null terminated ('\0') string pointer
 void usartWrite(char *str)
 {
     // double ptr is needed to keep track
     // of the already appended string while flushing
 
-    char *data = &str;
+    char **data = &str;
     while (usartAppend(data))
     {
         usartFlush();
@@ -62,7 +63,7 @@ void usartWrite(char *str)
     usartFlush();
 }
 
-int usartAppend(char **data)
+uint8_t usartAppend(char **data)
 {
     uint8_t *nextQByte = 0;
     while (1)
@@ -78,8 +79,8 @@ int usartAppend(char **data)
             txQWriteIndex = nextQByte;
         }
         else
-        { // No more space, time to flush
-            return 1;
+        { // no more space, time to flush
+            return (uint8_t)1;
         }
     }
 }
@@ -116,21 +117,15 @@ uint8_t *getNextQByte(uint8_t *currentByte)
     if (currentByte == txQReadIndex)
     {
         if (currentByte == txQEnd)
-        {
             return txQStart;
-        }
         else
-        {
             return currentByte + 1;
-        }
     }
 
     if (currentByte < txQReadIndex)
     {
         if (txQReadIndex - currentByte > 1)
-        {
             return currentByte + 1;
-        }
 
         // must leave an empty cell between write and read indices
         // when writing, flush() knows there are chars to send if
@@ -142,16 +137,12 @@ uint8_t *getNextQByte(uint8_t *currentByte)
     // if currentByte > txQReadIndex
 
     if (txQEnd - currentByte >= 1)
-    {
         return currentByte + 1;
-    }
 
     if (currentByte == txQEnd)
     {
         if (txQReadIndex > txQStart)
-        {
             return txQStart;
-        }
 
         return (uint8_t)0;
     }

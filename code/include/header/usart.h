@@ -6,7 +6,7 @@ void initUsart();
 
 void usartWrite(char *data);
 
-int usartAppend(char **data);
+uint8_t usartAppend(char **data);
 
 void usartFlush();
 
