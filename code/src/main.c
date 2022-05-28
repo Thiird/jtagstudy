@@ -16,23 +16,33 @@
 int main(int argc, char **argv)
 {
     DDRC |= (1 << PORTC7); // led output
+
+    char usartBuffer[128];
+
+    initUsart();
+
     // set jtag pins IO direction
     DDRD |= (1 << TDI);  // output
     DDRB &= ~(1 << TDO); // input
     DDRB |= (1 << TMS);  // output
     DDRB |= (1 << TCK);  // output
 
-    initUsart();
+    // 11011000
 
-    char usartBuffer[128];
-    uint8_t cont = 0;
+    if (FUSE_JTAGEN)
+    {
+        snprintf(usartBuffer, 11, "JTAGEN: 1\n\r");
+    }
+    else
+    {
+        snprintf(usartBuffer, 11, "JTAGEN: 0\n\r");
+    }
+
+    usartWrite(&usartBuffer[0]);
 
     while (1)
     {
-        usartWrite(&usartBuffer[0]);
-        cont++;
-        snprintf(usartBuffer, 15, "Number is %d\n\r", cont);
-        _delay_ms(100);
+        _delay_ms(1000);
     }
 
     return 0;

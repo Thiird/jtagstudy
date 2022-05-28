@@ -12,6 +12,10 @@ void toggleClock()
     PORTB &= ~(1 << PORTB5);
 }
 
+void isJtagEnabled()
+{
+}
+
 int countDevices()
 {
     uint8_t nOfDevices = 0;
