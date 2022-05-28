@@ -6,7 +6,6 @@
 #define F_CPU 16000000
 
 #include <unistd.h>
-#include <stdio.h>
 #include <avr/io.h>
 #include <util/delay.h>
 
@@ -17,8 +16,6 @@ int main(int argc, char **argv)
 {
     DDRC |= (1 << PORTC7); // led output
 
-    char usartBuffer[128];
-
     initUsart();
 
     // set jtag pins IO direction
@@ -27,21 +24,21 @@ int main(int argc, char **argv)
     DDRB |= (1 << TMS);  // output
     DDRB |= (1 << TCK);  // output
 
-    // 11011000
-
-    if (FUSE_JTAGEN)
+    if (!isJtagEnabled())
     {
-        snprintf(usartBuffer, 11, "JTAGEN: 1\n\r");
-    }
-    else
-    {
-        snprintf(usartBuffer, 11, "JTAGEN: 0\n\r");
+        usartSend("Jtag is not enabled! Set JTAGEN fuse bit to 0 first.\n\r\0");
+        return 1;
     }
 
-    usartWrite(&usartBuffer[0]);
+    resetJtagFsm();
+    /*int chainLength = countTapChainLenght();
+    usartSend("TAP chain length is: %d\n\r\0");*/
 
     while (1)
     {
+        usartSend("==========\n\r\0");
+        usartSend("TDO: %d\n\r", getTDO());
+        usartSend("==========\n\r\0");
         _delay_ms(1000);
     }
 

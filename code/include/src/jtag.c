@@ -2,21 +2,49 @@
 #define __AVR_ATmega32U4__
 #endif
 
+#define F_CPU 16000000
+
 #include <avr/io.h>
+#include <util/delay.h>
 #include "../header/jtag.h"
 
 void toggleClock()
 {
     PORTB |= (1 << PORTB5);
-    usleep(1); // 1us, as if 1MHz
+    _delay_us(1); // 1us, as if 1MHz
     PORTB &= ~(1 << PORTB5);
 }
 
-void isJtagEnabled()
+uint8_t isJtagEnabled()
 {
+    // TODO
+    //  read JTAGEN fuse
+
+    return 1;
 }
 
-int countDevices()
+uint8_t getTDO()
+{
+    return (PINB & (1 << TDO)) >> 7;
+}
+
+void setTDI(state_t state)
+{
+    if (state)
+        PORTD |= (1 << TDI);
+    else
+        PORTD &= ~(1 << TDI);
+}
+
+void setTMS(state_t state)
+{
+    if (state)
+        PORTB |= (1 << TMS);
+    else
+        PORTB &= ~(1 << TMS);
+}
+
+uint8_t countTapChainLenght()
 {
     uint8_t nOfDevices = 0;
 
@@ -77,12 +105,7 @@ int countDevices()
     return nOfDevices;
 }
 
-uint8_t getTDO()
-{
-    return PINB & (1 << TDO);
-}
-
-void resetJtag()
+void resetJtagFsm()
 {
     // clock TMS HIGH for 5 cycles to reset FSM
     PORTB |= (1 << PORTB6);
@@ -91,4 +114,4 @@ void resetJtag()
     PORTB &= ~(1 << PORTB6);
 }
 
-void writeInstruction(OPCODES);
+void writeInstruction();

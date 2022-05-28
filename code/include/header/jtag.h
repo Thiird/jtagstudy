@@ -17,9 +17,9 @@ typedef enum state
     HIGH = 1
 } state_t;
 
-void enableJtag();
+uint8_t isJtagEnabled();
 
-int countDevices();
+uint8_t countTapChainLenght();
 
 void resetJtagFsm();
 
@@ -27,4 +27,4 @@ void toggleClock();
 
 uint8_t getTDO();
 
-void writeInstruction(OPCODES);
+void writeInstruction();

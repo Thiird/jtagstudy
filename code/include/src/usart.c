@@ -3,6 +3,7 @@
 #endif
 
 #define F_CPU 16000000
+#include <stdio.h>
 #include <avr/io.h>
 #include <avr/interrupt.h>
 #include "../header/usart.h"
@@ -19,6 +20,8 @@ uint8_t *txQReadIndex = txQueue;  // where usart takes next char to send
 
 // actual queue size is TX_QUEUE_SIZE - 1, need one cell betwwen
 // read/write ptrs when appending data
+
+char usartBuffer[128];
 
 void initUsart()
 {
@@ -46,6 +49,27 @@ void initUsart()
 ISR(USART1_TX_vect)
 {
     addCharTxBuffer();
+}
+
+void usartSend(char *str, ...)
+{
+    uint8_t strLen = 0;
+    uint8_t *tempPtr = str;
+
+    while (*tempPtr != '\0')
+    {
+        strLen++;
+        tempPtr++;
+    }
+
+    if (!strLen)
+        return;
+
+    va_list args;
+    va_start(args, str);
+    vsnprintf(usartBuffer, strLen + 1, str, args);
+    va_end(args);
+    usartWrite(&usartBuffer[0]);
 }
 
 // takes in a null terminated ('\0') string pointer

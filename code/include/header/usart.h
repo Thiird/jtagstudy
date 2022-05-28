@@ -4,6 +4,8 @@
 
 void initUsart();
 
+void usartSend(char *str, ...);
+
 void usartWrite(char *data);
 
 uint8_t usartAppend(char **data);

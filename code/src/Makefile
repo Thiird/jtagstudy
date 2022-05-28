@@ -14,7 +14,7 @@ EFUSEB=$(shell avrdude -c ${PROGRAMMER} -p m32u4 -P ${PORT} -b ${BAUD} -U efuse:
 default: build flash
 
 build:
-	avr-gcc -mmcu=atmega32u4 main.c ../include/src/usart.c -o bin/main
+	avr-gcc -mmcu=atmega32u4 main.c ../include/src/usart.c ../include/src/jtag.c -o bin/main
 
 flash:
 	avr-objcopy -O ihex -R .eeprom bin/main bin/main.hex
