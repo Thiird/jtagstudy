@@ -14,32 +14,35 @@
 
 int main(int argc, char **argv)
 {
-    DDRC |= (1 << PORTC7); // led output
+    DDRD &= ~(1 << PD1); // button input pin
+    DDRC |= (1 << PC7);  // LED output pin
+
+    uint8_t sent = 0;
 
     initUsart();
-
-    // set jtag pins IO direction
-    DDRD |= (1 << TDI);  // output
-    DDRB &= ~(1 << TDO); // input
-    DDRB |= (1 << TMS);  // output
-    DDRB |= (1 << TCK);  // output
-
-    if (!isJtagEnabled())
-    {
-        usartSend("Jtag is not enabled! Set JTAGEN fuse bit to 0 first.\n\r\0");
-        return 1;
-    }
-
-    resetJtagFsm();
-    /*int chainLength = countTapChainLenght();
-    usartSend("TAP chain length is: %d\n\r\0");*/
+    initJtagInterface();
 
     while (1)
     {
-        usartSend("==========\n\r\0");
-        usartSend("TDO: %d\n\r", getTDO());
-        usartSend("==========\n\r\0");
-        _delay_ms(1000);
+        if (PIND & (1 << PD1))
+        {
+            if (!sent)
+            {
+                PORTC |= (1 << PORTC7);
+
+                resetJtagFsm();
+                usartSend("TAP chain lenght is: %d\n\r", countTapChainLenght());
+                usartSend("=======\n\r");
+
+                sent = 1;
+                PORTC &= ~(1 << PORTC7); // turn off led
+            }
+        }
+        else
+        {
+            sent = 0;
+            PORTC &= ~(1 << PORTC7); // turn off led
+        }
     }
 
     return 0;

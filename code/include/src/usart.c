@@ -67,9 +67,9 @@ void usartSend(char *str, ...)
 
     va_list args;
     va_start(args, str);
-    vsnprintf(usartBuffer, strLen + 1, str, args);
-    va_end(args);
+    vsnprintf(usartBuffer, 128, str, args);
     usartWrite(&usartBuffer[0]);
+    va_end(args);
 }
 
 // takes in a null terminated ('\0') string pointer
@@ -123,17 +123,13 @@ void usartFlush()
     }
 }
 
-uint8_t addCharTxBuffer()
+void addCharTxBuffer()
 {
     if (txQReadIndex != txQWriteIndex)
     {
         UDR1 = *txQReadIndex;
         txQReadIndex == txQEnd ? txQReadIndex = txQStart : txQReadIndex++;
-
-        return 0;
     }
-
-    return (uint8_t)1;
 }
 
 uint8_t *getNextQByte(uint8_t *currentByte)

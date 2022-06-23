@@ -12,6 +12,6 @@ uint8_t usartAppend(char **data);
 
 void usartFlush();
 
-uint8_t addCharTxBuffer();
+void addCharTxBuffer();
 
 uint8_t *getNextQByte(uint8_t *currentByte);
