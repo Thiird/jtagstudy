@@ -6,10 +6,10 @@
 
 #define AVR_JTAG_IR_LENGTH 4
 
-#define TDI PD6
-#define TDO PB7
-#define TMS PB6
-#define TCK PB5
+#define TDI DDD6
+#define TDO PINB7
+#define TMS DDB6
+#define TCK DDB5
 
 #define LOW (uint8_t)0
 #define HIGH (uint8_t)1

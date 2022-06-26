@@ -20,9 +20,6 @@ flash:
 	avr-objcopy -O ihex -R .eeprom bin/main bin/main.hex
 	avrdude -c ${PROGRAMMER} -p m32u4 -P ${PORT} -b ${BAUD} -U flash:w:bin/main.hex
 
-jtagen:
-	avrdude -c ${PROGRAMMER} -p m32u4 -P ${PORT} -b ${BAUD} -U hfuse:r::h
-
 clean:
 	rm -rf bin
 
