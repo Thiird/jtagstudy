@@ -44,6 +44,8 @@ void initUsart()
 
     // enable MCU to be interrupted by ISR's
     sei();
+
+    usartSend("Done.\n\r");
 }
 
 ISR(USART1_TX_vect)

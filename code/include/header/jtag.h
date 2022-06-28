@@ -5,6 +5,8 @@
 #include <avr/io.h>
 
 #define AVR_JTAG_IR_LENGTH 4
+#define MAX_TAP_CHAIN_LENGTH 64
+#define IDCODE_LENGTH 32 // usually its 32bit
 
 #define TDI DDD6
 #define TDO PINB7
@@ -18,12 +20,12 @@ uint8_t isJtagEnabled();
 
 void initJtagInterface();
 
-uint8_t countTapChainLenght();
+uint8_t getTapChainLenght();
 
 void resetJtagFsm();
+
+void getDeviceIds();
 
 void toggleClock();
 
 uint8_t getTDO();
-
-void writeInstruction();

@@ -12,9 +12,9 @@
 void toggleClock()
 {
     PORTB |= (1 << TCK);
-    _delay_ms(10);
+    _delay_ms(1);
     PORTB &= ~(1 << TCK);
-    _delay_ms(10);
+    _delay_ms(1);
 }
 
 uint8_t isJtagEnabled()
@@ -36,7 +36,7 @@ void setTDI(uint8_t state)
         PORTD |= (1 << TDI);
     else
         PORTD &= ~(1 << TDI);
-    _delay_ms(2);
+    _delay_ms(1);
 }
 
 void setTMS(uint8_t state)
@@ -45,11 +45,12 @@ void setTMS(uint8_t state)
         PORTB |= (1 << TMS);
     else
         PORTB &= ~(1 << TMS);
-    _delay_ms(2);
+    _delay_ms(1);
 }
 
 void initJtagInterface()
 {
+    usartSend("Init JTAG...");
     DDRD |= (1 << TDI);  // output
     DDRB &= ~(1 << TDO); // input
     DDRB |= (1 << TMS);  // output
@@ -57,6 +58,9 @@ void initJtagInterface()
 
     // ensure TCK starts LOW
     PORTB &= ~(1 << TCK);
+
+    resetJtagFsm();
+    usartSend("Done.\n\r");
 }
 
 void moveFSM(uint8_t bit)
@@ -65,10 +69,8 @@ void moveFSM(uint8_t bit)
     toggleClock();
 }
 
-uint8_t countTapChainLenght()
+uint8_t getTapChainLenght()
 {
-    // assuming jtag fsm is in 'Test-Logic-Reset' state
-
     moveFSM(LOW);  // moving to 'Run-Test/Idle' state
     moveFSM(HIGH); // moving to 'Select DR-Scan' state
     moveFSM(HIGH); // moving to 'Select IR-Scan' state
@@ -76,50 +78,113 @@ uint8_t countTapChainLenght()
     moveFSM(LOW);  // moving to 'Shift IR' state
 
     // shift in BYPASS instruction (all 1's)
+    // there could be many different devices in the TAP chain
+    // for which the IR length is unknown, so send a bunch
+    // of 1's to fill all the IR's
     setTDI(HIGH);
-    for (uint8_t i = 0; i < AVR_JTAG_IR_LENGTH - 1; i++)
+    for (uint16_t i = 0; i < 1000; i++)
         toggleClock();
     // last bit of instruction must have TMS high to exit 'shift-IR' state
     moveFSM(HIGH);
     setTDI(LOW);
 
-    // now we are in 'Exit1-IR' state, let's go to 'Shift-DR' state
+    // now in 'Exit1-IR' state, go to 'Shift-DR' state
 
-    // this tms sequence corrisponds to:
     moveFSM(HIGH); // go to 'Update IR' state, after this, loaded instruction is operational
-    // now we are ready to shift in the test bits into TDI
-    // and see with which offset they come out of TDO
-    // the offset will determine the lenght of the TAP chain
-    // because in the BYPASS mode, each TAP controller will
-    // simply delay TDO in respect to TDI by exactly one clock
+    // ready to shift in the test bits into TDI and check
+    // offset on TDO, which will determine length of TAP chain
+    // in BYPASS mode, each TAP will delay TDO in respect
+    // to TDI by exactly one clock
     moveFSM(HIGH); // go to 'Select DR-Scan' state
     moveFSM(LOW);  // go to 'Capture-DR' state
     moveFSM(LOW);  // go to 'Shift-DR' state
 
-    // send plenty of 0's to flush the BYPASS registers
+    // send plenty of 0's to flush the BYPASS chain
     setTDI(LOW);
-    for (uint8_t i = 0; i < 64; i++)
+    for (uint8_t i = 0; i < MAX_TAP_CHAIN_LENGTH; i++)
         toggleClock();
 
     // set TDI HIGH and count how many
     // clocks it takes to show up on TDO
     setTDI(HIGH);
-    int cont = 0;
-    for (uint8_t i = 0; i < 64; i++)
+    for (uint8_t i = 0; i < MAX_TAP_CHAIN_LENGTH; i++)
     {
         if (getTDO())
+        {
+            resetJtagFsm(); // go to 'Test-Logic-Reset' state
             return i;
+        }
 
         toggleClock();
     }
     setTDI(LOW); // reset line
 
+    resetJtagFsm(); // go to 'Test-Logic-Reset' state
+
     return LOW;
+}
+
+void getDeviceIds()
+{
+    /*
+
+             MSB                                                                          LSB
+             +-----------+----------------------+---------------------------+--------------+
+    IDCODE = |  Version  |      Part Number     |   Manufacturer Identity   |   Fixed (1)  |
+             +-----------+----------------------+---------------------------+--------------+
+                 31...28          27...12                  11...1                   0
+    */
+
+    uint8_t tapChainLen = getTapChainLenght();
+    usartSend("%d TAPs detected.\n\r", tapChainLen);
+
+    setTDI(LOW); // ignored
+
+    // when in 'Test-Logic-Reset' state
+    // the IDCODE instruction is in effect
+    // just need to shift-out IDCODE from TDO (LSB first)
+    moveFSM(LOW);  // go to 'Run-Test/Idle' state
+    moveFSM(HIGH); // go to 'Select DR-Scan'
+    moveFSM(LOW);  // go to 'Capture-DR'
+    moveFSM(LOW);  // go to 'Shift-DR'
+
+    uint32_t idcode = 0;
+    uint8_t bit = 0;
+    for (uint8_t i = tapChainLen; i > 0; i--)
+    {
+        usartSend("TAP %d\n\r", i);
+        for (uint8_t j = 0; j < IDCODE_LENGTH - 1; j++)
+        {
+            toggleClock();
+            idcode |= (uint32_t)getTDO() << j;
+            usartSend("read %d\n\r", getTDO());
+            for (uint8_t f = IDCODE_LENGTH - 1; f > 0; f--)
+            {
+                usartSend("%d", (idcode & (uint32_t)1 << f) ? 1 : 0);
+            }
+            usartSend("\n\r");
+        }
+
+        /*for (uint8_t f = IDCODE_LENGTH - 1; f > 0; f--)
+        {
+            bit = (idcode & (uint32_t)1 << f) ? 1 : 0;
+            usartSend("%d", bit);
+        }
+        usartSend("\n\r");*/
+
+        /*usartSend("TAP %d IDCODE: 0x%X = ", i, idcode);
+        usartSend("Manufacturer ID: 0x%X | ", (idcode << 20) >> 21);
+        usartSend("Part Number: 0x%X | ", (idcode << 4) >> 16);
+        usartSend("Version: 0x%X\n\r", idcode >> 28);*/
+
+        idcode = 0;
+    }
+
+    resetJtagFsm(); // go to 'Test-Logic-Reset' state
 }
 
 void resetJtagFsm()
 {
-    usartSend("Resetting JTAG FSM... ");
     // clock TMS HIGH for 5 cycles to reset FSM
     // into 'Test-Logic-Reset' state
     setTDI(LOW); // for safety set TDI to 0
@@ -127,7 +192,4 @@ void resetJtagFsm()
     for (int i = 0; i < 5; i++)
         toggleClock();
     setTMS(LOW);
-    usartSend("Done\n\r");
 }
-
-void writeInstruction();

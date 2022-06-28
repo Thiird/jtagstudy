@@ -26,6 +26,9 @@ clean:
 description:
 	avrdude -c ${PROGRAMMER} -p m32u4 -P ${PORT} -b ${BAUD} -v
 
+writefuses:
+	avrdude -c ${PROGRAMMER} -p m32u4 -P ${PORT} -U hfuse:w:0x98:m
+
 fuses:
 	@echo
 	@echo "Note: 0 means programmed, 1 means not programmed"
@@ -41,7 +44,7 @@ fuses:
 	@echo
 
 jtagenable:
-	avrdude -c ${PROGRAMMER} -p m32u4 -P ${PORT} -b ${BAUD} -U hfuse:w:0x98:m
+	avrdude -c ${PROGRAMMER} -p m32u4	 -P ${PORT} -b ${BAUD} -U hfuse:w:0x98:m
 
 jtagdisable:
 	avrdude -c ${PROGRAMMER} -p m32u4 -P ${PORT} -b ${BAUD} -U hfuse:w:0xD8:m
