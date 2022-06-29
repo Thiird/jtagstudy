@@ -6,7 +6,7 @@
 
 #define AVR_JTAG_IR_LENGTH 4
 #define MAX_TAP_CHAIN_LENGTH 64
-#define IDCODE_LENGTH 32 // usually its 32bit
+#define IDCODE_LENGTH 32
 
 #define TDI DDD6
 #define TDO PINB7

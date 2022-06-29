@@ -50,7 +50,7 @@ void setTMS(uint8_t state)
 
 void initJtagInterface()
 {
-    usartSend("Init JTAG...");
+    // usartSend("Init JTAG...");
     DDRD |= (1 << TDI);  // output
     DDRB &= ~(1 << TDO); // input
     DDRB |= (1 << TMS);  // output
@@ -60,7 +60,7 @@ void initJtagInterface()
     PORTB &= ~(1 << TCK);
 
     resetJtagFsm();
-    usartSend("Done.\n\r");
+    // usartSend("Done.\n\r");
 }
 
 void moveFSM(uint8_t bit)
@@ -128,11 +128,11 @@ void getDeviceIds()
 {
     /*
 
-             MSB                                                                          LSB
-             +-----------+----------------------+---------------------------+--------------+
-    IDCODE = |  Version  |      Part Number     |   Manufacturer Identity   |   Fixed (1)  |
-             +-----------+----------------------+---------------------------+--------------+
-                 31...28          27...12                  11...1                   0
+            MSB                                                            LSB
+             +-----------+---------------+--------------------+-------------+
+    IDCODE = |  Version  |  Part Number  |  Manufacturer ID   |  Fixed (1)  |
+             +-----------+---------------+--------------------+-------------+
+                 31...28      27...12            11...1              0
     */
 
     uint8_t tapChainLen = getTapChainLenght();
@@ -150,34 +150,23 @@ void getDeviceIds()
 
     uint32_t idcode = 0;
     uint8_t bit = 0;
+    // for each TAP in chain
     for (uint8_t i = tapChainLen; i > 0; i--)
     {
-        usartSend("TAP %d\n\r", i);
-        for (uint8_t j = 0; j < IDCODE_LENGTH - 1; j++)
+        // shift out IDCODE and store it
+        for (uint8_t j = 0; j < IDCODE_LENGTH; j++)
         {
-            toggleClock();
             idcode |= (uint32_t)getTDO() << j;
-            usartSend("read %d\n\r", getTDO());
-            for (uint8_t f = IDCODE_LENGTH - 1; f > 0; f--)
-            {
-                usartSend("%d", (idcode & (uint32_t)1 << f) ? 1 : 0);
-            }
-            usartSend("\n\r");
+            toggleClock();
         }
 
-        /*for (uint8_t f = IDCODE_LENGTH - 1; f > 0; f--)
-        {
-            bit = (idcode & (uint32_t)1 << f) ? 1 : 0;
-            usartSend("%d", bit);
-        }
-        usartSend("\n\r");*/
-
-        /*usartSend("TAP %d IDCODE: 0x%X = ", i, idcode);
-        usartSend("Manufacturer ID: 0x%X | ", (idcode << 20) >> 21);
+        usartSend("TAP %d IDCODE: 0x%X = ", i, idcode);
+        for (int8_t i = 31; i >= 0; i--)
+            (idcode & ((uint32_t)1 << i)) ? usartSend("1") : usartSend("0");
+        usartSend("\n\r");
+        usartSend("Manufacturer ID: 0x%X = | ", (idcode << 20) >> 21);
         usartSend("Part Number: 0x%X | ", (idcode << 4) >> 16);
-        usartSend("Version: 0x%X\n\r", idcode >> 28);*/
-
-        idcode = 0;
+        usartSend("Version: 0x%X\n\r", idcode >> 28);
     }
 
     resetJtagFsm(); // go to 'Test-Logic-Reset' state

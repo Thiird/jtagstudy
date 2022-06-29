@@ -7,12 +7,15 @@
 #include <avr/io.h>
 #include <avr/interrupt.h>
 #include "../header/usart.h"
+#include <util/delay.h>
 
 // txQ == transmission queue
 uint8_t txQueue[TX_QUEUE_SIZE];
 
 uint8_t *txQStart = txQueue;
 uint8_t *txQEnd = txQueue + (TX_QUEUE_SIZE - 1);
+
+uint8_t finishedTx = 1;
 
 // if these two ptrs are equal, it means there is nothing to be sent
 uint8_t *txQWriteIndex = txQueue; // where to append new chars to be sent
@@ -44,8 +47,6 @@ void initUsart()
 
     // enable MCU to be interrupted by ISR's
     sei();
-
-    usartSend("Done.\n\r");
 }
 
 ISR(USART1_TX_vect)
@@ -63,6 +64,14 @@ void usartSend(char *str, ...)
         strLen++;
         tempPtr++;
     }
+
+    /*for (int i = 0; i < strLen; i++)
+    {
+        PORTC |= (1 << PORTC7);
+        _delay_ms(300);
+        PORTC &= ~(1 << PORTC7);
+        _delay_ms(300);
+    }*/
 
     if (!strLen)
         return;
@@ -116,9 +125,10 @@ void usartFlush()
     if (txQReadIndex != txQWriteIndex)
     {
         // start txing
+        finishedTx = 0;
         addCharTxBuffer();
 
-        while (txQReadIndex != txQWriteIndex)
+        while (!finishedTx)
         { // polling, sigh
           // waiting for USART_TX_vect ISR to send all the queued data
         }
@@ -132,6 +142,8 @@ void addCharTxBuffer()
         UDR1 = *txQReadIndex;
         txQReadIndex == txQEnd ? txQReadIndex = txQStart : txQReadIndex++;
     }
+    else
+        finishedTx = 1;
 }
 
 uint8_t *getNextQByte(uint8_t *currentByte)
