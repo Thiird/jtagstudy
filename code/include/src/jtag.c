@@ -16,16 +16,23 @@
 
 #define AVAILABLE_PINS 4
 
-volatile uint8_t *ddrd = (volatile uint8_t *)(0x0A + 0x20);
-volatile uint8_t *ddrb = (volatile uint8_t *)(0x04 + 0x20);
+// GPIO direction registers
+volatile uint8_t *dregb = (volatile uint8_t *)(0x04 + 0x20); // DDRB
+volatile uint8_t *dregd = (volatile uint8_t *)(0x0A + 0x20); // DDRB
 
-volatile uint8_t *portd = (volatile uint8_t *)(0x0B + 0x20);
-volatile uint8_t *portb = (volatile uint8_t *)(0x05 + 0x20);
+// write registers
+volatile uint8_t *wregb = (volatile uint8_t *)(0x05 + 0x20); // PORTB
+volatile uint8_t *wrebd = (volatile uint8_t *)(0x0B + 0x20); // PORTD
+
+// read register
+volatile uint8_t *rregb = (volatile uint8_t *)(0x03 + 0x20); // PINB
+volatile uint8_t *rregd = (volatile uint8_t *)(0x09 + 0x20); // PIND
 
 typedef struct
 {
-    volatile uint8_t *ddr;
-    volatile uint8_t *port;
+    volatile uint8_t *dreg; // direction register
+    volatile uint8_t *wreg; // write register
+    volatile uint8_t *rreg; // read register
     uint8_t number;
 } pin;
 
@@ -42,9 +49,9 @@ uint8_t tck_index = 3;
 
 void toggleClock()
 {
-    setRegister(pins[tck_index].port, pins[tck_index].number, HIGH);
+    setRegister(pins[tck_index].wreg, pins[tck_index].number, HIGH);
     _delay_ms(1);
-    setRegister(pins[tck_index].port, pins[tck_index].number, LOW);
+    setRegister(pins[tck_index].wreg, pins[tck_index].number, LOW);
     _delay_ms(1);
 }
 
@@ -58,19 +65,19 @@ uint8_t isJtagEnabled()
 
 void setTDI(uint8_t state)
 {
-    setRegister(pins[tdi_index].port, pins[tdi_index].number, state);
+    setRegister(pins[tdi_index].wreg, pins[tdi_index].number, state);
     _delay_ms(1);
 }
 
 void setTMS(uint8_t state)
 {
-    setRegister(pins[tms_index].port, pins[tms_index].number, state);
+    setRegister(pins[tms_index].wreg, pins[tms_index].number, state);
     _delay_ms(1);
 }
 
 uint8_t getTDO()
 {
-    return *pins[tdo_index].port | (HIGH << pins[tdo_index].number);
+    return *pins[tdo_index].rreg & (HIGH << pins[tdo_index].number) ? HIGH : LOW;
 }
 
 void initJtag()
@@ -82,10 +89,10 @@ void initJtag()
 
 void initHwPins()
 { // define all the hw pins available to jtag
-    pins[0] = (pin){.ddr = ddrd, .port = portd, .number = 6};
-    pins[1] = (pin){.ddr = ddrb, .port = portb, .number = 7};
-    pins[2] = (pin){.ddr = ddrb, .port = portb, .number = 6};
-    pins[3] = (pin){.ddr = ddrb, .port = portb, .number = 5};
+    pins[0] = (pin){.dreg = dregd, .wreg = wrebd, .rreg = rregd, .number = 6};
+    pins[1] = (pin){.dreg = dregb, .wreg = wregb, .rreg = rregb, .number = 7};
+    pins[2] = (pin){.dreg = dregb, .wreg = wregb, .rreg = rregd, .number = 6};
+    pins[3] = (pin){.dreg = dregb, .wreg = wregb, .rreg = rregd, .number = 5};
 }
 
 void setRegister(volatile uint8_t *reg, uint8_t number, uint8_t value)
@@ -103,11 +110,11 @@ void setJtagInterface()
     {
         // TDO is only input pin
         if (jtagPins[i] == TDO_ID)
-            setRegister(pins[i].ddr, pins[i].number, LOW);
+            setRegister(pins[i].dreg, pins[i].number, LOW);
         else
         {
-            setRegister(pins[i].ddr, pins[i].number, HIGH);
-            setRegister(pins[i].port, pins[i].number, LOW); // ensure signals start LOW
+            setRegister(pins[i].dreg, pins[i].number, HIGH);
+            setRegister(pins[i].wreg, pins[i].number, LOW); // ensure signals start LOW
         }
     }
 }
@@ -131,7 +138,7 @@ uint8_t getTapChainLenght()
     // for which the IR length is unknown, so send a bunch
     // of 1's to fill all the IR's
     setTDI(HIGH);
-    for (uint16_t i = 0; i < 5; i++)
+    for (uint16_t i = 0; i < 1000; i++)
         toggleClock();
     // last bit of instruction must have TMS high to exit 'shift-IR' state
     moveFSM(HIGH);
@@ -150,20 +157,19 @@ uint8_t getTapChainLenght()
 
     // send plenty of 0's to flush the BYPASS chain
     setTDI(LOW);
-    for (uint8_t i = 0; i < 5; i++)
+    for (uint8_t i = 0; i < MAX_TAP_CHAIN_LENGTH * 2; i++)
         toggleClock();
 
     // set TDI HIGH and count how many
     // clocks it takes to show up on TDO
     setTDI(HIGH);
-    for (uint8_t i = 0; i < 5; i++)
+    for (uint8_t i = 0; i < MAX_TAP_CHAIN_LENGTH * 2; i++)
     {
         if (getTDO())
         {
             resetJtagFsm(); // go to 'Test-Logic-Reset' state
             return i;
         }
-
         toggleClock();
     }
     setTDI(LOW); // reset line
