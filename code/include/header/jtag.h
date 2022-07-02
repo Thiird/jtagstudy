@@ -22,6 +22,10 @@ uint8_t getTapChainLenght();
 
 void resetJtagFsm();
 
+void initHwPins();
+
+void setRegister(volatile uint8_t *reg, uint8_t number, uint8_t value);
+
 void getDeviceIds();
 
 void findJtagInterface();

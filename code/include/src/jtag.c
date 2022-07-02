@@ -34,7 +34,7 @@ uint8_t jtagPins[4] = {TDI_ID, TDO_ID, TMS_ID, TCK_ID};
 // the two arrays above are used to map a specific hw pin to a specific jtag signal
 // for example, if jtagPins[0] = TDI_ID, it means that pins[0] viene usato come TDI
 
-// these indeces represent the position of TDI_ID, etc inside jtagPins
+// these indeces represent the position of TDI_ID,.. etc inside jtagPins
 uint8_t tdi_index = 0;
 uint8_t tdo_index = 1;
 uint8_t tms_index = 2;
@@ -58,29 +58,34 @@ uint8_t isJtagEnabled()
 
 void setTDI(uint8_t state)
 {
-    if (state)
-        setRegister(pins[tdi_index].port, pins[tdi_index].number, HIGH);
-    else
-        setRegister(pins[tdi_index].port, pins[tdi_index].number, LOW);
+    setRegister(pins[tdi_index].port, pins[tdi_index].number, state);
     _delay_ms(1);
 }
 
 void setTMS(uint8_t state)
 {
-    if (state)
-        setRegister(pins[tms_index].port, pins[tms_index].number, HIGH);
-    else
-        setRegister(pins[tms_index].port, pins[tms_index].number, LOW);
+    setRegister(pins[tms_index].port, pins[tms_index].number, state);
     _delay_ms(1);
 }
 
-void initHwPins()
+uint8_t getTDO()
 {
-    *pins = *(pin[AVAILABLE_PINS]){
-        [0] = {.ddr = ddrd, .port = portd, .number = 6},  // D6
-        [1] = {.ddr = ddrb, .port = portb, .number = 7},  // B7
-        [2] = {.ddr = ddrb, .port = portb, .number = 6},  // B6
-        [3] = {.ddr = ddrb, .port = portb, .number = 5}}; // B5
+    return *pins[tdo_index].port | (HIGH << pins[tdo_index].number);
+}
+
+void initJtag()
+{
+    initHwPins();
+    setJtagInterface();
+    resetJtagFsm();
+}
+
+void initHwPins()
+{ // define all the hw pins available to jtag
+    pins[0] = (pin){.ddr = ddrd, .port = portd, .number = 6};
+    pins[1] = (pin){.ddr = ddrb, .port = portb, .number = 7};
+    pins[2] = (pin){.ddr = ddrb, .port = portb, .number = 6};
+    pins[3] = (pin){.ddr = ddrb, .port = portb, .number = 5};
 }
 
 void setRegister(volatile uint8_t *reg, uint8_t number, uint8_t value)
@@ -98,11 +103,11 @@ void setJtagInterface()
     {
         // TDO is only input pin
         if (jtagPins[i] == TDO_ID)
-            setRegister(pins[i].ddr, pins[0].number, 0);
+            setRegister(pins[i].ddr, pins[i].number, LOW);
         else
         {
-            setRegister(pins[i].ddr, pins[0].number, 1);
-            setRegister(pins[i].port, pins[0].number, 0); // ensure signals start LOW
+            setRegister(pins[i].ddr, pins[i].number, HIGH);
+            setRegister(pins[i].port, pins[i].number, LOW); // ensure signals start LOW
         }
     }
 }
@@ -126,7 +131,7 @@ uint8_t getTapChainLenght()
     // for which the IR length is unknown, so send a bunch
     // of 1's to fill all the IR's
     setTDI(HIGH);
-    for (uint16_t i = 0; i < 1000; i++)
+    for (uint16_t i = 0; i < 5; i++)
         toggleClock();
     // last bit of instruction must have TMS high to exit 'shift-IR' state
     moveFSM(HIGH);
@@ -145,13 +150,13 @@ uint8_t getTapChainLenght()
 
     // send plenty of 0's to flush the BYPASS chain
     setTDI(LOW);
-    for (uint8_t i = 0; i < MAX_TAP_CHAIN_LENGTH; i++)
+    for (uint8_t i = 0; i < 5; i++)
         toggleClock();
 
     // set TDI HIGH and count how many
     // clocks it takes to show up on TDO
     setTDI(HIGH);
-    for (uint8_t i = 0; i < MAX_TAP_CHAIN_LENGTH; i++)
+    for (uint8_t i = 0; i < 5; i++)
     {
         if (getTDO())
         {
@@ -262,10 +267,11 @@ void findJtagInterface()
         usartSend("No JTAG interface found\n\r");
         return;
     }
+}
 
-    void resetJtagFsm();
-
-    // clock TMS HIGH for 5 cycles to reset FSM
+void resetJtagFsm()
+{
+    // clock TMS HIGH for 5 cycles to put FSM
     // into 'Test-Logic-Reset' state
     setTDI(LOW); // for safety set TDI to 0
     setTMS(HIGH);

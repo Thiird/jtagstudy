@@ -39,7 +39,7 @@ void initUsart()
     UBRR1H = (8 >> 8);
     UBRR1L = 8;
 
-    // enable tx and tx completed ISR
+    // enable tx and tx-completed ISR
     UCSR1B = (1 << TXEN1) | (1 << TXCIE1);
 
     // set char size to 8 bit

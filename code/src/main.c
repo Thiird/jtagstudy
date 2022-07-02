@@ -14,14 +14,13 @@
 
 int main(int argc, char **argv)
 {
-
     DDRD &= ~(1 << PD1); // button input pin
     DDRC |= (1 << PC7);  // LED output pin
 
     uint8_t sent = 0;
 
     initUsart();
-    // setJtagInterface();
+    initJtag();
 
     while (1)
     {
@@ -30,8 +29,9 @@ int main(int argc, char **argv)
             if (!sent)
             {
                 PORTC |= (1 << PORTC7);
-                // usartSend("%d TAP's detected.\n\r", getTapChainLenght());
+                usartSend("%d TAP's detected.\n\r", getTapChainLenght());
                 // getDeviceIds();
+
                 sent = 1;
                 usartSend("====END====\n\r");
                 PORTC &= ~(1 << PORTC7); // turn off led
