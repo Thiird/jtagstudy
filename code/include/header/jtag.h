@@ -8,23 +8,23 @@
 #define MAX_TAP_CHAIN_LENGTH 64
 #define IDCODE_LENGTH 32
 
-#define TDI DDD6
-#define TDO PINB7
-#define TMS DDB6
-#define TCK DDB5
+// physical pins on 32u4 used for bit-banging
+// {D6, B7, B6,}
 
 #define LOW (uint8_t)0
 #define HIGH (uint8_t)1
 
 uint8_t isJtagEnabled();
 
-void initJtagInterface();
+void setJtagInterface();
 
 uint8_t getTapChainLenght();
 
 void resetJtagFsm();
 
 void getDeviceIds();
+
+void findJtagInterface();
 
 void toggleClock();
 
