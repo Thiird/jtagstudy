@@ -9,13 +9,6 @@
 #include "../header/jtag.h"
 #include "../header/usart.h"
 
-#define TDI_ID 0
-#define TDO_ID 1
-#define TMS_ID 2
-#define TCK_ID 3
-
-#define AVAILABLE_PINS 4
-
 // GPIO direction registers
 volatile uint8_t *dregb = (volatile uint8_t *)(0x04 + 0x20); // DDRB
 volatile uint8_t *dregd = (volatile uint8_t *)(0x0A + 0x20); // DDRB
@@ -28,24 +21,16 @@ volatile uint8_t *wrebd = (volatile uint8_t *)(0x0B + 0x20); // PORTD
 volatile uint8_t *rregb = (volatile uint8_t *)(0x03 + 0x20); // PINB
 volatile uint8_t *rregd = (volatile uint8_t *)(0x09 + 0x20); // PIND
 
-typedef struct
-{
-    volatile uint8_t *dreg; // direction register
-    volatile uint8_t *wreg; // write register
-    volatile uint8_t *rreg; // read register
-    uint8_t number;
-} pin;
-
 pin pins[AVAILABLE_PINS];
-uint8_t jtagPins[4] = {TDI_ID, TDO_ID, TMS_ID, TCK_ID};
+uint8_t jtagPins[4]; // eventually will be filled with TDI_ID, TDO_ID,.. etc defines
 // the two arrays above are used to map a specific hw pin to a specific jtag signal
 // for example, if jtagPins[0] = TDI_ID, it means that pins[0] viene usato come TDI
 
 // these indeces represent the position of TDI_ID,.. etc inside jtagPins
-uint8_t tdi_index = 0;
-uint8_t tdo_index = 1;
-uint8_t tms_index = 2;
-uint8_t tck_index = 3;
+uint8_t tdi_index = 1;
+uint8_t tdo_index = 2;
+uint8_t tms_index = 3;
+uint8_t tck_index = 0;
 
 void toggleClock()
 {
@@ -88,11 +73,12 @@ void initJtag()
 }
 
 void initHwPins()
-{ // define all the hw pins available to jtag
-    pins[0] = (pin){.dreg = dregd, .wreg = wrebd, .rreg = rregd, .number = 6};
-    pins[1] = (pin){.dreg = dregb, .wreg = wregb, .rreg = rregb, .number = 7};
-    pins[2] = (pin){.dreg = dregb, .wreg = wregb, .rreg = rregd, .number = 6};
-    pins[3] = (pin){.dreg = dregb, .wreg = wregb, .rreg = rregd, .number = 5};
+{
+    // define all the hw pins available to jtag
+    pins[0] = (pin){.dreg = dregd, .wreg = wrebd, .rreg = rregd, .number = 6}; // D6
+    pins[1] = (pin){.dreg = dregb, .wreg = wregb, .rreg = rregb, .number = 7}; // B7
+    pins[2] = (pin){.dreg = dregb, .wreg = wregb, .rreg = rregb, .number = 6}; // B6
+    pins[3] = (pin){.dreg = dregb, .wreg = wregb, .rreg = rregb, .number = 5}; // B5
 }
 
 void setRegister(volatile uint8_t *reg, uint8_t number, uint8_t value)
@@ -105,6 +91,11 @@ void setRegister(volatile uint8_t *reg, uint8_t number, uint8_t value)
 
 void setJtagInterface()
 {
+    jtagPins[tdi_index] = TDI_ID;
+    jtagPins[tdo_index] = TDO_ID;
+    jtagPins[tms_index] = TMS_ID;
+    jtagPins[tck_index] = TCK_ID;
+
     // set pin direction based on jtag signal assigned
     for (uint8_t i = 0; i < AVAILABLE_PINS; i++)
     {
@@ -167,14 +158,14 @@ uint8_t getTapChainLenght()
     {
         if (getTDO())
         {
-            resetJtagFsm(); // go to 'Test-Logic-Reset' state
+            resetJtagFsm();
             return i;
         }
         toggleClock();
     }
     setTDI(LOW); // reset line
 
-    resetJtagFsm(); // go to 'Test-Logic-Reset' state
+    resetJtagFsm();
 
     return LOW;
 }
@@ -193,7 +184,7 @@ void getDeviceIds()
     uint8_t tapChainLen = getTapChainLenght();
     usartSend("%d TAPs detected.\n\r", tapChainLen);
 
-    setTDI(LOW); // ignored
+    setTDI(LOW); // not needed, just to set a value
 
     // when in 'Test-Logic-Reset' state
     // the IDCODE instruction is in effect
@@ -204,17 +195,17 @@ void getDeviceIds()
     moveFSM(LOW);  // go to 'Shift-DR'
 
     uint32_t idcode = 0;
-    uint8_t bit = 0;
     // for each TAP in chain
     for (uint8_t i = tapChainLen; i > 0; i--)
     {
         // shift out IDCODE and store it
         for (uint8_t j = 0; j < IDCODE_LENGTH; j++)
         {
-            idcode |= (uint32_t)getTDO() << j;
+            idcode |= (uint32_t)getTDO() << j; // important to cast!
             toggleClock();
         }
 
+        // print out found ID
         usartSend("TAP %d IDCODE: 0x%X = ", i, idcode);
         for (int8_t i = 31; i >= 0; i--)
             (idcode & ((uint32_t)1 << i)) ? usartSend("1") : usartSend("0");
@@ -225,10 +216,10 @@ void getDeviceIds()
         usartSend("-----\n\r");
     }
 
-    resetJtagFsm(); // go to 'Test-Logic-Reset' state
+    resetJtagFsm();
 }
 
-void findJtagInterface()
+uint8_t findJtagInterface()
 {
     for (uint8_t _tdi = 0; _tdi < 4; _tdi++)
     {
@@ -253,26 +244,60 @@ void findJtagInterface()
                                 jtagPins[_tck] = TCK_ID;
                                 tck_index = _tck;
 
+                                usartSend("Trying [");
+                                for (uint8_t t = 0; t < AVAILABLE_PINS; t++)
+                                {
+                                    switch (jtagPins[t])
+                                    {
+                                    case TDI_ID:
+                                        usartSend("TDI");
+                                        if (t != AVAILABLE_PINS - 1)
+                                            usartSend(", ");
+                                        break;
+                                    case TDO_ID:
+                                        usartSend("TDO");
+                                        if (t != AVAILABLE_PINS - 1)
+                                            usartSend(", ");
+                                        break;
+                                    case TMS_ID:
+                                        usartSend("TMS");
+                                        if (t != AVAILABLE_PINS - 1)
+                                            usartSend(", ");
+                                        break;
+                                    case TCK_ID:
+                                        usartSend("TCK");
+                                        if (t != AVAILABLE_PINS - 1)
+                                            usartSend(", ");
+                                        break;
+                                    }
+                                }
+                                usartSend("]...");
                                 setJtagInterface();
+
                                 if (getTapChainLenght())
                                 {
-                                    usartSend("Interface found!\n\r");
-                                    /*usartSend("TDI: %d\n\r", indeces[0]);
-                                    usartSend("TDO: %d\n\r", indeces[1]);
-                                    usartSend("TMS: %d\n\r", indeces[2]);
-                                    usartSend("TCK: %d\n\r", indeces[3]);*/
-                                    return;
+                                    usartSend("Success!\n\r");
+                                    usartSend("Signal | Pin\n\r");
+                                    usartSend(" TDI   | %d\n\r", tdi_index);
+                                    usartSend(" TDO   | %d\n\r", tdo_index);
+                                    usartSend(" TMS   | %d\n\r", tms_index);
+                                    usartSend(" TCK   | %d\n\r", tck_index);
+
+                                    return HIGH;
                                 }
+                                else
+                                    usartSend("Fail.\n\r");
                             }
+                            resetJtagFsm();
                         }
                     }
                 }
             }
         }
-
-        usartSend("No JTAG interface found\n\r");
-        return;
     }
+
+    usartSend("No JTAG interface found.\n\r");
+    return LOW;
 }
 
 void resetJtagFsm()

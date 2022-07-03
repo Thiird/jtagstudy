@@ -29,8 +29,8 @@ int main(int argc, char **argv)
             if (!sent)
             {
                 PORTC |= (1 << PORTC7);
-                // usartSend("%d TAP's detected.\n\r", getTapChainLenght());
-                getDeviceIds();
+                if (findJtagInterface())
+                    getDeviceIds();
 
                 sent = 1;
                 usartSend("====END====\n\r");

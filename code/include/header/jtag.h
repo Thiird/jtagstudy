@@ -7,12 +7,23 @@
 #define AVR_JTAG_IR_LENGTH 4
 #define MAX_TAP_CHAIN_LENGTH 64
 #define IDCODE_LENGTH 32
+#define AVAILABLE_PINS 4 // pins on which we can search a jtag interface
 
-// physical pins on 32u4 used for bit-banging
-// {D6, B7, B6,}
+#define TDI_ID 0
+#define TDO_ID 1
+#define TMS_ID 2
+#define TCK_ID 3
 
 #define LOW (uint8_t)0
 #define HIGH (uint8_t)1
+
+typedef struct
+{
+    volatile uint8_t *dreg; // direction register
+    volatile uint8_t *wreg; // write register
+    volatile uint8_t *rreg; // read register
+    uint8_t number;
+} pin;
 
 uint8_t isJtagEnabled();
 
@@ -28,7 +39,7 @@ void setRegister(volatile uint8_t *reg, uint8_t number, uint8_t value);
 
 void getDeviceIds();
 
-void findJtagInterface();
+uint8_t findJtagInterface();
 
 void toggleClock();
 
