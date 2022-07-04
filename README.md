@@ -11,8 +11,8 @@ Here is a picture of my inital setup:
 
 ![](/img/initial_setup.jpg)
 
-I used an [ATmega 32u4](http://ww1.microchip.com/downloads/en/DeviceDoc/Atmel-7766-8-bit-AVR-ATmega16U4-32U4_Datasheet.pdf) from an [Arduino Micro](https://store.arduino.cc/products/arduino-micro) board as the the main MCU to which I uploaded code via the [USBasp](https://www.fischl.de/usbasp/) ISP programmer and [avrdude](https://www.nongnu.org/avrdude/).
-To test the code, I initially connected the four GPIO bit-banging pins to the JTAG interface of the 32u4 itself, once that was working, I used a custom PCB designed in KiCad to extend the JTAG chain with two more TAPs and test the code again. The custom PCB is a breakout for another ATmega 32u4 and an [AT90USB1286](http://ww1.microchip.com/downloads/en/DeviceDoc/doc7593.pdf), both in QFN package. Extending the JTAG chain revealed some bugs which I managed to solve in a couple of days.
+I used an [ATmega 32u4](http://ww1.microchip.com/downloads/en/DeviceDoc/Atmel-7766-8-bit-AVR-ATmega16U4-32U4_Datasheet.pdf) from an [Arduino Micro](https://store.arduino.cc/products/arduino-micro) board as the the main MCU to which I uploaded code via the [USBasp](https://www.fischl.de/usbasp/) ISP programmer and [avrdude](https://www.nongnu.org/avrdude/). I also implemented the USART interface (TX only) to be able to print to the serial monitor the result of the code.
+To test the code, I initially connected the four GPIO bit-banging pins to the JTAG interface of the 32u4 itself, once that was working, I used a custom PCB designed in [KiCad](https://www.kicad.org/) to extend the JTAG chain with two more TAPs and test the code again. The custom PCB is a breakout for another ATmega 32u4 and an [AT90USB1286](http://ww1.microchip.com/downloads/en/DeviceDoc/doc7593.pdf) Extending the JTAG chain revealed some bugs which I managed to solve in a couple of days.
 
 The PCB had some mistake which were solved by bridging some connections and whatnot.
 
@@ -20,7 +20,7 @@ Here is a picture of my final setup:
 
 ![](/img/final_setup.jpg)
 
-I learned a lot of thing while doing this project, not only software related, but also hardware, because this was my first time using an [oscilloscope](https://eleshop.eu/owon-sds1104.html), which I used to debug the signals I was bit-banging.
+I learned a lot of things while doing this project, not only software related, but also hardware, because this was my first time using an [oscilloscope](https://eleshop.eu/owon-sds1104.html), which I used to debug the signals I was bit-banging.
 
 
 # Functionalities
