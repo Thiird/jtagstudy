@@ -25,22 +25,30 @@ typedef struct
     uint8_t number;
 } pin;
 
+void setTDI(uint8_t state);
+
+void setTMS(uint8_t state);
+
+uint8_t getTDO();
+
+void toggleClock();
+
+void setRegister(volatile uint8_t *reg, uint8_t number, uint8_t value);
+
 uint8_t isJtagEnabled();
-
-void setJtagInterface();
-
-uint8_t getTapChainLenght();
 
 void resetJtagFsm();
 
+void initJtag();
+
 void initHwPins();
 
-void setRegister(volatile uint8_t *reg, uint8_t number, uint8_t value);
+void setJtagInterface();
+
+void moveFSM(uint8_t bit);
+
+uint8_t getTapChainLenght();
 
 void getDeviceIds();
 
 uint8_t findJtagInterface();
-
-void toggleClock();
-
-uint8_t getTDO();

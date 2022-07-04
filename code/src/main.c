@@ -29,6 +29,7 @@ int main(int argc, char **argv)
             if (!sent)
             {
                 PORTC |= (1 << PORTC7);
+                resetJtagFsm();
                 if (findJtagInterface())
                     getDeviceIds();
 

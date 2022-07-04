@@ -32,22 +32,6 @@ uint8_t tdo_index = 2;
 uint8_t tms_index = 3;
 uint8_t tck_index = 0;
 
-void toggleClock()
-{
-    setRegister(pins[tck_index].wreg, pins[tck_index].number, HIGH);
-    _delay_ms(1);
-    setRegister(pins[tck_index].wreg, pins[tck_index].number, LOW);
-    _delay_ms(1);
-}
-
-uint8_t isJtagEnabled()
-{
-    // TODO
-    // read JTAGEN fuse
-
-    return HIGH;
-}
-
 void setTDI(uint8_t state)
 {
     setRegister(pins[tdi_index].wreg, pins[tdi_index].number, state);
@@ -65,6 +49,41 @@ uint8_t getTDO()
     return *pins[tdo_index].rreg & (HIGH << pins[tdo_index].number) ? HIGH : LOW;
 }
 
+void toggleClock()
+{
+    setRegister(pins[tck_index].wreg, pins[tck_index].number, HIGH);
+    _delay_ms(1);
+    setRegister(pins[tck_index].wreg, pins[tck_index].number, LOW);
+    _delay_ms(1);
+}
+
+void setRegister(volatile uint8_t *reg, uint8_t number, uint8_t value)
+{
+    if (value)
+        *reg |= (HIGH << number);
+    else
+        *reg &= ~(HIGH << number);
+}
+
+uint8_t isJtagEnabled()
+{
+    // TODO
+    // read JTAGEN fuse
+
+    return HIGH;
+}
+
+void resetJtagFsm()
+{
+    // clock TMS HIGH for 5 cycles to put FSM
+    // into 'Test-Logic-Reset' state
+    setTDI(LOW); // for safety set TDI to 0
+    setTMS(HIGH);
+    for (int i = 0; i < 5; i++)
+        toggleClock();
+    setTMS(LOW);
+}
+
 void initJtag()
 {
     initHwPins();
@@ -79,14 +98,6 @@ void initHwPins()
     pins[1] = (pin){.dreg = dregb, .wreg = wregb, .rreg = rregb, .number = 7}; // B7
     pins[2] = (pin){.dreg = dregb, .wreg = wregb, .rreg = rregb, .number = 6}; // B6
     pins[3] = (pin){.dreg = dregb, .wreg = wregb, .rreg = rregb, .number = 5}; // B5
-}
-
-void setRegister(volatile uint8_t *reg, uint8_t number, uint8_t value)
-{
-    if (value)
-        *reg |= (HIGH << number);
-    else
-        *reg &= ~(HIGH << number);
 }
 
 void setJtagInterface()
@@ -151,15 +162,45 @@ uint8_t getTapChainLenght()
     for (uint8_t i = 0; i < MAX_TAP_CHAIN_LENGTH * 2; i++)
         toggleClock();
 
-    // set TDI HIGH and count how many
-    // clocks it takes to show up on TDO
-    setTDI(HIGH);
+    // send message on TDI
+    uint16_t sentMsg = 0b1011001001001101;
+    uint8_t msgSize = sizeof(sentMsg) << 3;
+    uint8_t sentCont = 0;
+
+    uint16_t receivedMsg = 0b0;
+    uint8_t receivedCont = 0;
+
     for (uint8_t i = 0; i < MAX_TAP_CHAIN_LENGTH * 2; i++)
     {
+        if (sentCont < msgSize)
+        {
+            setTDI(sentMsg & ((uint16_t)1 << sentCont) ? HIGH : LOW);
+            sentCont++;
+        }
+        // msg starts with 1, so we detect it on TDO
+        // by looking at the first HIGH
         if (getTDO())
         {
-            resetJtagFsm();
-            return i;
+            do
+            {
+                receivedMsg |= getTDO() << receivedCont;
+                receivedCont++;
+
+                // finish to send msg if not already sent
+                if (sentCont < msgSize)
+                {
+                    setTDI(sentMsg & ((uint16_t)1 << sentCont) ? HIGH : LOW);
+                    sentCont++;
+                }
+
+            } while (receivedCont < msgSize);
+
+            // check if received is equal to sent
+            if ((receivedMsg & sentMsg) == sentMsg)
+            {
+                resetJtagFsm();
+                return i;
+            }
         }
         toggleClock();
     }
@@ -221,6 +262,14 @@ void getDeviceIds()
 
 uint8_t findJtagInterface()
 {
+
+    int16_t permutations = 1;
+    uint8_t tried = 1;
+    for (uint8_t c = 1; c <= AVAILABLE_PINS; c++)
+        permutations *= c;
+
+    usartSend("%d possible combinations of pins to check.\n\r");
+
     for (uint8_t _tdi = 0; _tdi < 4; _tdi++)
     {
         jtagPins[_tdi] = TDI_ID;
@@ -244,7 +293,9 @@ uint8_t findJtagInterface()
                                 jtagPins[_tck] = TCK_ID;
                                 tck_index = _tck;
 
-                                usartSend("Trying [");
+                                usartSend("Searching for jtag interface(%d/%d): ", tried, permutations);
+
+                                usartSend("[");
                                 for (uint8_t t = 0; t < AVAILABLE_PINS; t++)
                                 {
                                     switch (jtagPins[t])
@@ -271,22 +322,26 @@ uint8_t findJtagInterface()
                                         break;
                                     }
                                 }
-                                usartSend("]...");
+                                usartSend("]");
                                 setJtagInterface();
 
                                 if (getTapChainLenght())
                                 {
-                                    usartSend("Success!\n\r");
-                                    usartSend("Signal | Pin\n\r");
-                                    usartSend(" TDI   | %d\n\r", tdi_index);
-                                    usartSend(" TDO   | %d\n\r", tdo_index);
-                                    usartSend(" TMS   | %d\n\r", tms_index);
-                                    usartSend(" TCK   | %d\n\r", tck_index);
+                                    usartSend("\n\rSuccess!\n\r");
+                                    usartSend("--------------\n\r");
+                                    usartSend("Signal | Pin |\n\r");
+                                    usartSend(" TDI   | %d   |\n\r", tdi_index);
+                                    usartSend(" TDO   | %d   |\n\r", tdo_index);
+                                    usartSend(" TMS   | %d   |\n\r", tms_index);
+                                    usartSend(" TCK   | %d   |\n\r", tck_index);
+                                    usartSend("--------------\n\r");
 
                                     return HIGH;
                                 }
                                 else
-                                    usartSend("Fail.\n\r");
+                                    usartSend("\r");
+
+                                tried++;
                             }
                             resetJtagFsm();
                         }
@@ -296,17 +351,6 @@ uint8_t findJtagInterface()
         }
     }
 
-    usartSend("No JTAG interface found.\n\r");
+    usartSend("\nNo JTAG interface found.\n\r");
     return LOW;
-}
-
-void resetJtagFsm()
-{
-    // clock TMS HIGH for 5 cycles to put FSM
-    // into 'Test-Logic-Reset' state
-    setTDI(LOW); // for safety set TDI to 0
-    setTMS(HIGH);
-    for (int i = 0; i < 5; i++)
-        toggleClock();
-    setTMS(LOW);
 }
